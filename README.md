@@ -1,7 +1,4 @@
-# C_Knowledge
-C Programming language
-
-## Exercises from "The C Programming Language" 2nd Edition by Brian W. Kernighan and Dennis M. Ritchie
+## Exercises from "The C Programming Language" 2nd Edition
 
 ### Chapter 1: A Tutorial Introduction
 1-1. Run the "hello, world" program on your system. Experiment with leaving out parts of the program, to see what error messages you get.  
