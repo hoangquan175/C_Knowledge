@@ -8,6 +8,7 @@ Exercises:
 int main() {
     // Exercise 1-6
     int c = getchar();
+    printf("You entered: %c\n", c);
     printf("getchar() != EOF: %d\n", c != EOF); 
     // Exercise 1-7
     printf("Value of EOF: %d\n", EOF); 
