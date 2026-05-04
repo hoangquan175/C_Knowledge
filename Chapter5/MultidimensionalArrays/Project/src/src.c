@@ -28,24 +28,6 @@ int day_of_year(int year, int month, int day) {
     return day;
 }
 
-// month_day: set month, day from day of year
-void month_day(int year, int yearday, int *pmonth, int *pday) {
-    if (year < 1 || yearday < 1 || yearday > (is_leap_year(year) ? 366 : 365)) {
-        *pmonth = -1; // Set month to -1 to indicate an error
-        *pday = -1;   // Set day to -1 to indicate an error
-        return;
-    }
-    int leap = is_leap_year(year);
-    int month = 1;
-    while (yearday > daytab[leap][month]) {
-        yearday -= daytab[leap][month];
-        month++;
-    }
-    *pmonth = month;
-    *pday = yearday;
-}
-
-
 int main() {
     // Test cases for day_of_year and month_day functions
     int year = 2020, month = 3, day = 1;
