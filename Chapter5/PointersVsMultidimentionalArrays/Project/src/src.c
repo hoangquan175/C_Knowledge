@@ -1,0 +1,43 @@
+/*
+Exercises:
+5-9. Rewrite the routines day_of_year and month_day with pointers instead of indexing.
+*/
+#include <stdio.h>
+#include <string.h>
+#include "header.h"
+
+static char daytab[2][13] = {
+    {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+    {0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+};
+
+// is_leap_year: return 1 if year is a leap year, 0 otherwise
+int is_leap_year(int year) {
+    return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+}
+
+// day_of_year: set day of year from month & day
+int day_of_year(int year, int month, int day) {
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > daytab[is_leap_year(year)][month]) {
+        return -1; // Return -1 to indicate an error
+    }
+    int leap = is_leap_year(year);
+    char *p = &daytab[leap][0];
+    for (int i = 1; i < month; i++) {
+        day += *p++;
+    }
+    return day;
+}
+
+int main() {
+    // Test cases for day_of_year and month_day functions
+    int year = 2020, month = 3, day = 1;
+    int yearday = day_of_year(year, month, day);
+    if (yearday != -1) {
+        printf("Day of year for %d-%02d-%02d is: %d\n", year, month, day, yearday);
+    } else {
+        printf("Invalid date: %d-%02d-%02d\n", year, month, day);
+    }
+
+    return 0;
+}
