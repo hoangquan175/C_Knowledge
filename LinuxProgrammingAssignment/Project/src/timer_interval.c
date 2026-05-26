@@ -6,13 +6,20 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* CONFIGURATION */
+#define INPUT_POLL_NS 100000000 // 100 ms
+#define FREQ_FILE "freq.txt"
 
 /* Global variables */
 static volatile long long g_T = 0;
 static volatile int g_period_ns = 1000000; // Default period of 1 ms
 static volatile int g_new_sample = 0;
+// Mutex for protecting access to g_T and g_period_ns
 static pthread_mutex_t T_period_mutex = PTHREAD_MUTEX_INITIALIZER;
+// Condition variable to signal LOGGING thread when a new sample is available
 static pthread_cond_t T_cond = PTHREAD_COND_INITIALIZER;
+// Mutex for protecting access to period updates from INPUT thread
+static pthread_mutex_t period_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*Flag to start/stop the program*/
 static volatile int g_running = 1;
@@ -28,7 +35,7 @@ static void sleep_until(struct timespec *next, long long period){
         next->tv_sec += 1;
     }
     while (clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, next, NULL) == -1)
-        ; // Retry if interrupted by signal
+        ; // Re/*try if interrupted by signal
 }
 
 // Get current time in nanoseconds
@@ -48,6 +55,62 @@ Description:
 */
 static void *thread_input(void *arg)
 {
+    (void)arg;
+
+    // Save the previous content to detect changes
+    char prev_content[64] = "";
+    // Sleep time specification for polling - 100 ms
+    struct timespec sleep_ts = {
+        .tv_sec = 0,
+        .tv_nsec = INPUT_POLL_NS};
+
+    while (g_running)
+    {
+        // Sleep for a short period to avoid busy waiting
+        nanosleep(&sleep_ts, NULL);
+
+        FILE *fp = fopen(FREQ_FILE, "r");
+        // If the file doesn't exist, skip this iteration
+        if (!fp)
+            continue;
+
+        char buf[64] = "";
+        // Read the content of the file
+        if (!fgets(buf, sizeof(buf), fp))
+        {
+            fclose(fp);
+            continue;
+        }
+        fclose(fp);
+
+        // Remove trailing newline and whitespace characters
+        size_t len = strlen(buf);
+        while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' ||
+                           buf[len - 1] == ' '))
+            buf[--len] = '\0';
+
+        // If the content hasn't changed, skip this iteration
+        if (strcmp(buf, prev_content) == 0)
+            continue;
+
+        // Convert the value to a long long integer
+        char *endptr = NULL;
+        long long new_period = strtoll(buf, &endptr, 10);
+        if (endptr == buf || new_period <= 0)
+        {
+            fprintf(stderr, "INPUT: giá trị không hợp lệ: \"%s\"\n", buf);
+            continue;
+        }
+
+        // Update the global variable g_period_ns with the new value
+        pthread_mutex_lock(&period_mutex);
+        g_period_ns = new_period;
+        pthread_mutex_unlock(&period_mutex);
+
+        strncpy(prev_content, buf, sizeof(prev_content) - 1);
+        printf("INPUT: cập nhật chu kỳ X = %lld ns\n", new_period);
+        fflush(stdout);
+    }
     return NULL;
 }
 
