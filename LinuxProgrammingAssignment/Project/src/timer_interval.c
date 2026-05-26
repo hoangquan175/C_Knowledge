@@ -10,12 +10,15 @@
 /* Global variables */
 static volatile long long g_T = 0;
 static volatile int g_period_ns = 1000000; // Default period of 1 ms
+static pthread_mutex_t T_period_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t T_cond = PTHREAD_COND_INITIALIZER;
 
 /*FUNCTION DEFINITIONS */
 // Sleep until the next period
 static void sleep_until(struct timespec *next, long long period){
     next->tv_nsec += (long)(period % 1000000000LL);
     next->tv_sec += (long)(period / 1000000000LL);
+    // Handle overflow of nanoseconds
     if (next->tv_nsec >= 1000000000LL) {
         next->tv_nsec -= 1000000000LL;
         next->tv_sec += 1;
@@ -54,8 +57,12 @@ static void *thread_logging(void *arg)
 {   
     long long prev_T = 0;
     while (1) {
+        /* Wait for a new sample signal from the SAMPLE thread */
+        pthread_mutex_lock(&T_period_mutex);
+        pthread_cond_wait(&T_cond, &T_period_mutex);
         long long current_T = g_T;
         long long interval = current_T - prev_T;
+        pthread_mutex_unlock(&T_period_mutex);
         printf("Current time: %lld ns, Interval: %lld ns\n", current_T, interval);
         prev_T = current_T;
     }
@@ -74,14 +81,20 @@ static void *thread_sample(void *arg)
     // Get the current time as the baseline for sleeping
     clock_gettime(CLOCK_REALTIME, &next);
     while (1) { 
-        // Sleep until the next period 
+        // Sleep until the next period
+        pthread_mutex_lock(&T_period_mutex);
         long long period = g_period_ns;
+        pthread_mutex_unlock(&T_period_mutex);
         // Sleep until the next period 
         sleep_until(&next, period);
         /*1. Get current time in nanoseconds and update global variable g_T */
+        pthread_mutex_lock(&T_period_mutex);
         long long current_time_ns = now_ns();
         // Update global variable g_T (not shown here, as it's not defined in this snippet)
         g_T = current_time_ns;
+        // Signal the LOGGING thread that a new sample is available
+        pthread_cond_signal(&T_cond);
+        pthread_mutex_unlock(&T_period_mutex);
     }
     return NULL;
 }
