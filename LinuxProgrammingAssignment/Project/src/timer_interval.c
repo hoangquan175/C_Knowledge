@@ -8,11 +8,13 @@
 
 /* CONFIGURATION */
 #define INPUT_POLL_NS 100000000 // 100 ms
+#define DEFAULT_PERIOD_NS 1000000 // 1 ms
 #define FREQ_FILE "freq.txt"
+#define LOG_FILE "log.txt"
 
-/* Global variables */
+/* GLOBAL VARIABLES */
 static volatile long long g_T = 0;
-static volatile int g_period_ns = 1000000; // Default period of 1 ms
+static volatile long long g_period_ns = DEFAULT_PERIOD_NS; // Default period of 1 ms
 static volatile int g_new_sample = 0;
 // Mutex for protecting access to g_T and g_period_ns
 static pthread_mutex_t T_period_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -20,7 +22,6 @@ static pthread_mutex_t T_period_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t T_cond = PTHREAD_COND_INITIALIZER;
 // Mutex for protecting access to period updates from INPUT thread
 static pthread_mutex_t period_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 /*Flag to start/stop the program*/
 static volatile int g_running = 1;
 
@@ -51,7 +52,7 @@ static inline long long now_ns(void)
 Thread INPUT
 Description: 
     1.Thread gets input from the user and updates the global variable g_input. 
-2.It also signals the SAMPLE thread that a new input is available.
+    2.It also signals the SAMPLE thread that a new input is available.
 */
 static void *thread_input(void *arg)
 {
@@ -107,7 +108,9 @@ static void *thread_input(void *arg)
         g_period_ns = new_period;
         pthread_mutex_unlock(&period_mutex);
 
+        // Save the new content to detect future changes
         strncpy(prev_content, buf, sizeof(prev_content) - 1);
+        // Print the updated period to the console
         printf("INPUT: cập nhật chu kỳ X = %lld ns\n", new_period);
         fflush(stdout);
     }
@@ -122,24 +125,53 @@ Description:
 */
 static void *thread_logging(void *arg)
 {   
+    (void)arg;
     long long prev_T = 0;
+    // Flag to indicate if it's the first interval calculation
+    int first_interval_flag = 1;
+
+    // Open the log file for writing
+    FILE *log_fp = fopen(LOG_FILE, "w");
+    if (!log_fp) {
+        perror("Failed to open log file");
+        return NULL;
+    }
+    // Create the log file header
+    fprintf(log_fp, "Current Time (ns), Interval (ns)\n");
+    fflush(log_fp);
+
     while (g_running) {
-        /* Wait for a new sample signal from the SAMPLE thread */
+        //Wait for a new sample signal from the SAMPLE thread 
         pthread_mutex_lock(&T_period_mutex);
+        // Optimize the waiting time by using a flag to indicate when a new sample is available
         while (!g_new_sample && g_running) {
             pthread_cond_wait(&T_cond, &T_period_mutex);
         }
+        // If the program is no longer running, exit the loop
         if (!g_running) {
             pthread_mutex_unlock(&T_period_mutex);
             break;
         }
+        //Update the current time and reset the new sample flag
         long long current_T = g_T;
-        g_new_sample = 0; // Reset the flag for the next sample
-        long long interval = current_T - prev_T;
+        // Reset the flag for the next sample
+        g_new_sample = 0;
         pthread_mutex_unlock(&T_period_mutex);
+
+        // Calculate the interval
+        long long interval = first_interval_flag ? 0 : current_T - prev_T;
+        first_interval_flag = 0;
+        
+        // Log the current time and interval to the file
         printf("Current time: %lld ns, Interval: %lld ns\n", current_T, interval);
+        fprintf(log_fp, "%lld, %lld\n", current_T, interval);
+        fflush(log_fp);
+
+        // Update prev_T for the next interval calculation
         prev_T = current_T;
     }
+    // Close the log file before exiting
+    fclose(log_fp);
     return NULL;
 }
 
@@ -154,17 +186,20 @@ static void *thread_sample(void *arg)
     struct timespec next;
     // Get the current time as the baseline for sleeping
     clock_gettime(CLOCK_REALTIME, &next);
+
     while (g_running) { 
         // Sleep until the next period
         pthread_mutex_lock(&T_period_mutex);
         long long period = g_period_ns;
         pthread_mutex_unlock(&T_period_mutex);
+
         // Sleep until the next period 
         sleep_until(&next, period);
-        /*1. Get current time in nanoseconds and update global variable g_T */
+
+        // Get current time in nanoseconds and update global variable g_T
         pthread_mutex_lock(&T_period_mutex);
         long long current_time_ns = now_ns();
-        // Update global variable g_T (not shown here, as it's not defined in this snippet)
+        // Update global variable g_T
         g_T = current_time_ns;
         // Set the flag to indicate a new sample is available
         g_new_sample = 1;
@@ -177,17 +212,37 @@ static void *thread_sample(void *arg)
 
 
 int main()
-{
+{   
+    // Check if the frequency file exists, if not create it with the default period
+    FILE *freq_fp = fopen(FREQ_FILE, "r");
+    if (!freq_fp) {
+        freq_fp = fopen(FREQ_FILE, "w");
+        if (freq_fp) {
+            // Write the default period to the file
+            fprintf(freq_fp, "%lld\n", DEFAULT_PERIOD_NS);
+            fclose(freq_fp);
+        } else {
+            perror("Failed to create frequency file");
+            return 1;
+        }
+    } else {
+        fclose(freq_fp);
+    }
+
+    // Initialize threads for SAMPLE, LOGGING, and INPUT
     pthread_t t_logging, t_sample, t_input;
 
+    // Create the LOGGING thread
     if (pthread_create(&t_logging, NULL, thread_logging, NULL) != 0) {
         perror("Failed to create LOGGING thread");
         return 1;
     }
+    // Create the SAMPLE thread
     if (pthread_create(&t_sample, NULL, thread_sample, NULL) != 0) {
         perror("Failed to create SAMPLE thread");
         return 1;
     }
+    // Create the INPUT thread
     if (pthread_create(&t_input, NULL, thread_input, NULL) != 0) {
         perror("Failed to create INPUT thread");
         return 1;
