@@ -7,8 +7,8 @@
 #include <stdlib.h>
 
 /* CONFIGURATION */
-#define INPUT_POLL_NS 100000000 // 100 ms
-#define DEFAULT_PERIOD_NS 1000000 // 1 ms
+#define INPUT_POLL_NS 100000000LL // 100 ms
+#define DEFAULT_PERIOD_NS 1000000LL // 1 ms
 #define FREQ_FILE "freq.txt"
 #define LOG_FILE "log.txt"
 
@@ -163,7 +163,7 @@ static void *thread_logging(void *arg)
         first_interval_flag = 0;
         
         // Log the current time and interval to the file
-        printf("Current time: %lld ns, Interval: %lld ns\n", current_T, interval);
+        // printf("Current time: %lld ns, Interval: %lld ns\n", current_T, interval);
         fprintf(log_fp, "%lld, %lld\n", current_T, interval);
         fflush(log_fp);
 
