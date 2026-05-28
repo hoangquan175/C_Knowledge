@@ -5,13 +5,13 @@
 # Purpose:
 #   1. Compile timer_threads.c (if needed).
 #   2. Start the C program (timer_threads) in the background.
-#   3. Change the period X in freq.txt every 1 minute:
+#   3. Change the period X in freq.txt every DURATION_PER_STEP seconds:
 #         minute 0-1 : 1 000 000 ns  (1 ms)
 #         minute 1-2 :   100 000 ns  (0.1 ms)
 #         minute 2-3 :    10 000 ns  (10 µs)
 #         minute 3-4 :     1 000 ns  (1 µs)
 #         minute 4-5 :       100 ns
-#   4. After 5 minutes, stop the C program.
+#   4. After TOTAL_STEPS, stop the C program.
 #
 # Usage:
 #   chmod +x run_experiment.sh
