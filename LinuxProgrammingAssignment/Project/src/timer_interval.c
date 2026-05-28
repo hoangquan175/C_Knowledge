@@ -16,8 +16,8 @@
 static volatile long long g_T = 0;
 static volatile long long g_period_ns = DEFAULT_PERIOD_NS; // Default period of 1 ms
 static volatile int g_new_sample = 0;
-// Mutex for protecting access to g_T and g_period_ns
-static pthread_mutex_t T_period_mutex = PTHREAD_MUTEX_INITIALIZER;
+// Mutex for protecting access to g_T and new sample flag
+static pthread_mutex_t T_sample_mutex = PTHREAD_MUTEX_INITIALIZER;
 // Condition variable to signal LOGGING thread when a new sample is available
 static pthread_cond_t T_cond = PTHREAD_COND_INITIALIZER;
 // Mutex for protecting access to period updates from INPUT thread
@@ -142,21 +142,21 @@ static void *thread_logging(void *arg)
 
     while (g_running) {
         //Wait for a new sample signal from the SAMPLE thread 
-        pthread_mutex_lock(&T_period_mutex);
+        pthread_mutex_lock(&T_sample_mutex);
         // Optimize the waiting time by using a flag to indicate when a new sample is available
         while (!g_new_sample && g_running) {
-            pthread_cond_wait(&T_cond, &T_period_mutex);
+            pthread_cond_wait(&T_cond, &T_sample_mutex);
         }
         // If the program is no longer running, exit the loop
         if (!g_running) {
-            pthread_mutex_unlock(&T_period_mutex);
+            pthread_mutex_unlock(&T_sample_mutex);
             break;
         }
         //Update the current time and reset the new sample flag
         long long current_T = g_T;
         // Reset the flag for the next sample
         g_new_sample = 0;
-        pthread_mutex_unlock(&T_period_mutex);
+        pthread_mutex_unlock(&T_sample_mutex);
 
         // Calculate the interval
         long long interval = first_interval_flag ? 0 : current_T - prev_T;
@@ -189,15 +189,15 @@ static void *thread_sample(void *arg)
 
     while (g_running) { 
         // Sleep until the next period
-        pthread_mutex_lock(&T_period_mutex);
+        pthread_mutex_lock(&period_mutex);
         long long period = g_period_ns;
-        pthread_mutex_unlock(&T_period_mutex);
+        pthread_mutex_unlock(&period_mutex);
 
         // Sleep until the next period 
         sleep_until(&next, period);
 
         // Get current time in nanoseconds and update global variable g_T
-        pthread_mutex_lock(&T_period_mutex);
+        pthread_mutex_lock(&T_sample_mutex);
         long long current_time_ns = now_ns();
         // Update global variable g_T
         g_T = current_time_ns;
@@ -205,7 +205,7 @@ static void *thread_sample(void *arg)
         g_new_sample = 1;
         // Signal the LOGGING thread that a new sample is available
         pthread_cond_signal(&T_cond);
-        pthread_mutex_unlock(&T_period_mutex);
+        pthread_mutex_unlock(&T_sample_mutex);
     }
     return NULL;
 }

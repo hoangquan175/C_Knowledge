@@ -1,6 +1,6 @@
 
 # Output executable name
-TARGET = program.exe
+TARGET = timer_threads.exe
 
 #Compiler and flags
 CC = gcc
