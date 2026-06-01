@@ -26,10 +26,11 @@ FREQ_FILE="freq.txt"
 OUTPUT_FILE="time_and_interval.txt"
 
 # Array of period values (in ns), ordered per minute
-PERIODS=(1000000 100000 10000 1000 100)
+# PERIODS=(1000000 100000 10000 1000 100)
+PERIODS=(1000000)
 LABELS=("1 000 000 ns (1 ms)" "100 000 ns (0.1 ms)" "10 000 ns (10 µs)" "1 000 ns (1 µs)" "100 ns")
 
-DURATION_PER_STEP=30   # seconds per step
+DURATION_PER_STEP=60   # seconds per step
 TOTAL_STEPS=${#PERIODS[@]}   # = 5
 
 # ---------------------------------------------------------------------------

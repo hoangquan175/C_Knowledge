@@ -5,6 +5,7 @@ TARGET = timer_threads.exe
 #Compiler and flags
 CC = gcc
 CFLAGS = -Wall -g -std=c11 -Iinc #Include directory for header files
+LDFLAGS = -pthread
 
 #Source and object files		
 SRCS = $(wildcard src/timer_interval.c) #All .c files in src directory
@@ -19,7 +20,7 @@ obj:
 
 #Linking
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 #Compilation
 obj/%.o: src/%.c
