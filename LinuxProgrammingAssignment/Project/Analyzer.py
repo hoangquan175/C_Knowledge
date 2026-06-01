@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import sys
 import os
+from typing import List, Tuple
 
 # =========================
 # CONFIG
@@ -25,7 +26,7 @@ TOL_RATIO = 2000
 # HELPERS
 # =========================
 
-def load_file(path: str) -> tuple[np.ndarray, np.ndarray]:
+def load_file(path: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Load file CSV/TXT có format:
         Current Time (ns), Interval (ns)
@@ -66,7 +67,7 @@ def format_ns(value: float) -> str:
 # PLOT PER FILE
 # =========================
 
-def plot_file(path: str, targets: list[float], tol_ratio: float) -> None:
+def plot_file(path: str, targets: List[float], tol_ratio: float) -> None:
     """
     Vẽ 2 subplot (line + histogram) cho mỗi target của một file.
     """
